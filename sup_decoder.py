@@ -108,10 +108,7 @@ def decode_rle(rle_data: bytes, width: int, height: int) -> np.ndarray:
     Throws ValueError when the display dimensions are invalid.
     """
     # Interlaced buffer: even rows at the top, odd at the bottom;
-    even_rows = (height + 1) // 2       # Number of even lines;
-    odd_rows = height // 2              # Number of odd lines;
     total_pixels = width * height
-
     pixels = np.zeros(total_pixels, dtype=np.uint8)
     pixel_pos = 0       # Current position in the flat pixel array;
     i = 0               # Current position in the RLE data;
@@ -122,9 +119,8 @@ def decode_rle(rle_data: bytes, width: int, height: int) -> np.ndarray:
 
         if byte1 != 0x00:
             # Case 1: 1 pixel with color index byte1;
-            if pixel_pos < total_pixels:
-                pixels[pixel_pos] = byte1
-                pixel_pos += 1
+            pixels[pixel_pos] = byte1
+            pixel_pos += 1
             continue
         
         # Escape sequenz;
@@ -135,15 +131,13 @@ def decode_rle(rle_data: bytes, width: int, height: int) -> np.ndarray:
         if byte2 == 0x00:
             # End-of-Line: Align the next line;
             # Round the pixel position to the next multiple of 'width';
-            remainder = pixel_pos % width
-            if remainder != 0:
-                pixel_pos += width - remainder
+            current_row = pixel_pos // width
+            pixel_pos = (current_row + 1) * width
             continue
 
         # Read flags from the 2 bits of byte2;
         flag = (byte2 & 0xC0) >> 6
-        # Length from the lower 6 bits;
-        length_high = byte2 & 0x3F
+        length_high = byte2 & 0x3F          # Lower 6 bits = high part of run length;
 
         if flag == 0b00:
             # 0x00 0b00LLLLLL -> L transparent pixel (color 0);
@@ -153,25 +147,21 @@ def decode_rle(rle_data: bytes, width: int, height: int) -> np.ndarray:
         elif flag == 0b01:
             # 0x00 0b01LLLLLL LL -> long transparent sequenz (to 16383);
             if i >= len(rle_data): break
-            byte3 = rle_data[i]
-            i += 1
+            byte3 = rle_data[i]; i += 1
             count = (length_high << 8) | byte3
             color = 0
 
         elif flag == 0b10:
             # 0x00 0b10LLLLLL CC -> L pixel with color CC;
             if i >= len(rle_data): break
-            color = rle_data[i]
-            i += 1
+            color = rle_data[i]; i += 1
             count = length_high
 
         else: # flag == 0b11;
             # 0x00 0b11LLLLLL LL CC -> long colored sequenz;
             if i + 1 >= len(rle_data): break
-            byte3 = rle_data[i]
-            i += 1
-            color = rle_data[i]
-            i += 1
+            byte3 = rle_data[i]; i += 1
+            color = rle_data[i]; i += 1
             count = (length_high << 8) | byte3
 
         # Write the pixel run;
@@ -179,17 +169,7 @@ def decode_rle(rle_data: bytes, width: int, height: int) -> np.ndarray:
         pixels[pixel_pos:end_pos] = color
         pixel_pos += count
 
-    # Deinterlacing;
-    # The buffer contains: [even lines | odd lines];
-    # Goal: Switching between even/odd lines in the output array;
-    out = np.zeros((height, width), dtype=np.uint8)
-    even_data = pixels[:even_rows * width].reshape(even_rows, width)
-    odd_data = pixels[even_rows * width:even_rows * width + odd_rows * width].reshape(odd_rows, width)
-
-    out[0::2] = even_data       # Rows 0, 2, 4, ...;
-    out[1::2] = odd_data       # Rows 1, 3, 5, ...;
-
-    return out
+    return pixels.reshape((height, width))
 
 
 
