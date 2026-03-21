@@ -98,78 +98,88 @@ def build_rgba_palette(pds: PDSSegment) -> np.ndarray:
 # ------------------------------------------------------------------------------------
 # 2. Decode RLE Data;
 # ------------------------------------------------------------------------------------
-def decode_rle(rle_data: bytes, width: int, height: int) -> np.ndarray:
+def _parse_rle_rows(rle_data: bytes, width: int) -> list[np.ndarray]:
     """
-    Decode PGS RLE data into a 2D array made of palette indices.
+    Parse the RLE stream into individual rows.
+    Each 0x00 0x00 terminates exactly one row.
+    Rows shorter thant 'width' are zero-padded on the right.
 
-    :return: numpy array with shape (height, width), dtype=uint8
-    Each value is a palette index (0-255).
-
-    Throws ValueError when the display dimensions are invalid.
+    :return: List of 1D uint8 arrays, each of length 'width'.
     """
-    # Interlaced buffer: even rows at the top, odd at the bottom;
-    total_pixels = width * height
-    pixels = np.zeros(total_pixels, dtype=np.uint8)
-    pixel_pos = 0       # Current position in the flat pixel array;
-    i = 0               # Current position in the RLE data;
+    rows: list[np.ndarray] = []
+    current_row = np.zeros(width, dtype=np.uint8)
+    col = 0
+    i = 0
 
-    while i < len(rle_data) and pixel_pos < total_pixels:
-        byte1 = rle_data[i]
-        i += 1
+    while i < len(rle_data):
+        byte1 = rle_data[i]; i += 1
 
         if byte1 != 0x00:
-            # Case 1: 1 pixel with color index byte1;
-            pixels[pixel_pos] = byte1
-            pixel_pos += 1
+            if col < width:
+                current_row[col] = byte1
+                col += 1
             continue
-        
-        # Escape sequenz;
+
         if i >= len(rle_data): break
-        byte2 = rle_data[i]
-        i += 1
+        byte2 = rle_data[i]; i += 1
 
         if byte2 == 0x00:
-            # End-of-Line: Align the next line;
-            # Round the pixel position to the next multiple of 'width';
-            current_row = pixel_pos // width
-            pixel_pos = (current_row + 1) * width
+            rows.append(current_row)
+            current_row = np.zeros(width, dtype=np.uint8)
+            col = 0
             continue
 
-        # Read flags from the 2 bits of byte2;
         flag = (byte2 & 0xC0) >> 6
-        length_high = byte2 & 0x3F          # Lower 6 bits = high part of run length;
+        length_high = byte2 & 0x3F
 
         if flag == 0b00:
-            # 0x00 0b00LLLLLL -> L transparent pixel (color 0);
-            count = length_high
-            color = 0
+            count = length_high; color = 0
 
         elif flag == 0b01:
-            # 0x00 0b01LLLLLL LL -> long transparent sequenz (to 16383);
             if i >= len(rle_data): break
             byte3 = rle_data[i]; i += 1
-            count = (length_high << 8) | byte3
-            color = 0
+            count = (length_high << 8) | byte3; color = 0
 
         elif flag == 0b10:
-            # 0x00 0b10LLLLLL CC -> L pixel with color CC;
             if i >= len(rle_data): break
             color = rle_data[i]; i += 1
             count = length_high
 
-        else: # flag == 0b11;
-            # 0x00 0b11LLLLLL LL CC -> long colored sequenz;
+        else:
             if i + 1 >= len(rle_data): break
             byte3 = rle_data[i]; i += 1
             color = rle_data[i]; i += 1
             count = (length_high << 8) | byte3
 
-        # Write the pixel run;
-        end_pos = min(pixel_pos + count, total_pixels)
-        pixels[pixel_pos:end_pos] = color
-        pixel_pos += count
+        end_col = min(col + count, width)
+        current_row[col:end_col] = color
+        col += count
 
-    return pixels.reshape((height, width))
+    return rows
+
+
+def decode_rle(rle_data: bytes, width: int, height: int) -> np.ndarray:
+    """
+    Decode PGS RLE data into a 2D uint8 array of palette indices.
+
+    The RLE stream encodes excactly (height // 2) rows.
+    Each encoded row maps to two consecutive ouput rows (row doubling).
+    This matches how Blu-Ray encoders store subtitles for interlaced video sources.
+
+    :return: numpy array with shape (height, width), dtype=uint8
+    """
+    rows = _parse_rle_rows(rle_data, width)
+    out = np.zeros((height, width), dtype=np.uint8)
+
+    for idx, row in enumerate(rows):
+        out_row = idx * 2
+        if out_row + 1 < height:
+            out[out_row] = row          # Original line;
+            out[out_row + 1] = row      # Duplicate line below;
+        elif out_row < height:
+            out[out_row] = row          # Last row if height is odd;
+
+    return out
 
 
 
