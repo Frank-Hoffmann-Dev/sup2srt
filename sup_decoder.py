@@ -170,14 +170,22 @@ def decode_rle(rle_data: bytes, width: int, height: int) -> np.ndarray:
     """
     rows = _parse_rle_rows(rle_data, width)
     out = np.zeros((height, width), dtype=np.uint8)
+    n = len(rows)
 
-    for idx, row in enumerate(rows):
-        out_row = idx * 2
-        if out_row + 1 < height:
-            out[out_row] = row          # Original line;
-            out[out_row + 1] = row      # Duplicate line below;
-        elif out_row < height:
-            out[out_row] = row          # Last row if height is odd;
+    if n == 0: return out
+
+    if n >= height:
+        # Progressive: 1 encoded row -> 1 output row;
+        for idx, row in enumerate(rows):
+            if idx < height: out[idx] = row
+
+    else:
+        # Interlaced: 1 encoded row -> 2 output rows;
+
+        for idx, row in enumerate(rows):
+            out_row = idx * 2
+            if out_row < height: out[out_row] = row          # Original line;
+            if out_row + 1 < height: out[out_row + 1] = row          # Last row if height is odd;
 
     return out
 
