@@ -1,6 +1,11 @@
 """
 ocr.py OCR for PGS Subtitle Images
-Takes DecodedImage objects from 'sup_decoder.py' and returns recognized text.
+Author: Frank Hoffmann
+AI Assistent: Anthropic Claude AI - Sonnet 4.6
+Date: 22.03.2026
+License: MIT
+Description: Takes DecodedImage objects from 'sup_decoder.py' and returns recognized text.
+============================================================
 
 Pipline per image:
     1. Preprocess: RGBA -> grayscale, upscale, contrast, threshold

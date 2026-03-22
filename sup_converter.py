@@ -1,6 +1,11 @@
 """
 sup_converter.py - PGS DisplaySet -> SRT Converter
-Combines parser, decoder and OCR into a complete .SRT file.
+Author: Frank Hoffmann
+AI Assistent: Anthropic Claude AI - Sonnet 4.6
+Date: 22.03.2026
+License: MIT
+Description: Combines parser, decoder and OCR into a complete .SRT file.
+============================================================
 
 SRT format:
     <index>

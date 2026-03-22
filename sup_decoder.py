@@ -1,6 +1,11 @@
 """
 sup_decoder.py - PGS RLE Decoder & Image Reconstructor
-Takes a DisplaySet from 'sup_parser.py' and returns a PIL.Image.
+Author: Frank Hoffmann
+AI Assistent: Anthropic Claude AI - Sonnet 4.6
+Date: 22.03.2026
+License: MIT
+Description: Takes a DisplaySet from 'sup_parser.py' and returns a PIL.Image.
+============================================================
 
 Procedure:
 1. Decode RLE data -> Pixel-Index-Array

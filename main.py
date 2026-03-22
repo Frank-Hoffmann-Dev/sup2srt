@@ -1,6 +1,11 @@
 """
 main.py - SUP to SRT Convert CLI
-Entry point that wires together parser, decoder, OCR and converter.
+Author: Frank Hoffmann
+AI Assistent: Anthropic Claude AI - Sonnet 4.6
+Date: 22.03.2026
+License: MIT
+Description: Entry point that wires together parser, decoder, OCR and converter.
+============================================================
 
 Single file mode:
     python main.py <subtitle_file.sup> [options]

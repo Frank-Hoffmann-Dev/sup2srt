@@ -1,6 +1,11 @@
 """
 sup_parser.py - PGS/ SUP Binary Parser
-Reads a .SUP file and extracts it into structured display sets.
+Author: Frank Hoffmann
+AI Assistent: Anthropic Claude AI - Sonnet 4.6
+Date: 22.03.2026
+License: MIT
+Description: Reads a .SUP file and extracts it into structured display sets.
+============================================================
 
 PGS Structure:
 Each segment starts with a 13 byte header:
