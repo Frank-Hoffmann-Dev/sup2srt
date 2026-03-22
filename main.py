@@ -52,7 +52,7 @@ from pathlib import Path
 
 from sup_parser import DisplaySet, SupParser
 from sup_decoder import decode_display_set
-from ocr import ocr_display_set
+from ocr import ocr_display_set, validate_language, UnknownLanguageError, TesseractNotFoundError
 from sup_converter import (
     SRTEntry, ConversionResult,
     _is_erase_event,
@@ -276,6 +276,12 @@ def run(
 ) -> None:
     stats = DebugStats() if debug else None
 
+    # Validate language before doing any work;
+    try: validate_language(lang)
+    except (TesseractNotFoundError, UnknownLanguageError) as e:
+        print(f"\nError: {e}", file=sys.stderr)
+        sys.exit(1)
+
     print(f"Input:      {sup_path}")
     print(f"Output:     {srt_path}")
     print(f"Language:   {lang}")
@@ -421,6 +427,12 @@ def run_batch(
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Validate the fallback language before starting the batch;
+    try: validate_language(lang)
+    except (TesseractNotFoundError, UnknownLanguageError) as e:
+        print(f"\nError: {e}", file=sys.stderr)
+        sys.exit(1)
+
     print(f"Batch mode")
     print(f"    Input folder    : {input_dir}")
     print(f"    Output folder   : {output_dir}")
@@ -439,6 +451,15 @@ def run_batch(
         # Fallback back to --lang if not found;
         file_lang, lang_detected = detect_language(sup_path.stem, fallback=lang)
         lang_note = "(detected from filename)" if lang_detected else "(fallback)"
+
+        # Validate detected language (fallback was already checked above);
+        if lang_detected and file_lang != lang:
+            try: validate_language(file_lang)
+            except UnknownLanguageError as e:
+                print(f"    Warning: {e}")
+                print(f"    Falling back to '{lang}' for this file.")
+                file_lang = lang
+                lang_note = "(fallback - detected lang not installed)"
 
         print(f"[{file_index}/{len(sup_files)}] {sup_path.name} - lang: {file_lang} {lang_note}")
 

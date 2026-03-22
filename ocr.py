@@ -128,6 +128,44 @@ def _build_tesseract_config(lang: str, psm: int) -> str:
     return f"--oem 3 --psm {psm} -l {lang}"
 
 
+class TesseractNotFoundError(RuntimeError):
+    """
+    Raised when the Tesseract binary cannot be found on the system.
+    """
+
+
+class UnknownLanguageError(ValueError):
+    """
+    Raised when a Tesseract language pack is not installed.
+    """
+    def __init__(self, lang: str):
+        self.lang = lang
+        super().__init__(
+            f"Tesseract language pack '{lang}' is not installed.\n"
+            f"To list all installed languages run: tesseract --list-langs"
+        )
+
+
+def validate_language(lang: str) -> None:
+    """
+    Check that all requested language packs are installed before starting OCR.
+
+    Tesseract supports combined languages like 'eng+deu'. Each part is validated
+    individually. Raises 'UnkownLanguageError' with a helpful message on the first
+    missing pack, 'TesseractNotFoundError' if Tesseract itself is not found.
+    """
+    try: installed = pytesseract.get_languages(config="")
+    except pytesseract.TesseractNotFoundError:
+        raise TesseractNotFoundError(
+            "Tesseract is not installed or not on PATH.\n"
+            "Checkout the official Tesseract project to find instructions to install it."
+        )
+
+    for part in lang.split("+"):
+        if part and part not in installed:
+            raise UnknownLanguageError(part)
+
+
 def run_ocr(image: Image.Image, lang: str = "eng", psm: int = PSM_BLOCK) -> str:
     """
     Run Tesseract OCR on a preprocessed image.
@@ -138,7 +176,17 @@ def run_ocr(image: Image.Image, lang: str = "eng", psm: int = PSM_BLOCK) -> str:
     :return:      Raw Tesseract output string
     """
     config = _build_tesseract_config(lang, psm)
-    return pytesseract.image_to_string(image, config=config)
+    try:
+        return pytesseract.image_to_string(image, config=config)
+
+    except pytesseract.TesseractNotFoundError:
+        raise TesseractNotFoundError("Tesseract is not installed or not in PATH.")
+
+    except pytesseract.TesseractError as e:
+        msg = str(e)
+        if "Failed loading language" in msg or "Could not initialize tesseract" in msg:
+            raise UnknownLanguageError(lang)
+        raise
 
 
 
