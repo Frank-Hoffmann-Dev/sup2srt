@@ -37,7 +37,7 @@ from typing import Optional
 from PIL import Image
 import numpy as np
 
-from sup_parser import DisplaySet, ODSSegement, PDSSegment, PCSSegment
+from sup2srt.sup_parser import DisplaySet, PDSSegment, PCSSegment
 
 
 # ------------------------------------------------------------------------------------

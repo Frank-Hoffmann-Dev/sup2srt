@@ -50,14 +50,14 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from sup_parser import DisplaySet, SupParser
-from sup_decoder import decode_display_set
-from ocr import ocr_display_set, validate_language, UnknownLanguageError, TesseractNotFoundError
-from sup_converter import (
+from sup2srt import __version__
+from sup2srt.sup_parser import DisplaySet, SupParser
+from sup2srt.sup_decoder import decode_display_set
+from sup2srt.ocr import ocr_display_set, validate_language, UnknownLanguageError, TesseractNotFoundError
+from sup2srt.sup_converter import (
     SRTEntry, ConversionResult,
     _is_erase_event,
     DEFAULT_DURATION_MS, MIN_DURATION_MS,
-    _ms_to_srt_timestamp
 )
 
 

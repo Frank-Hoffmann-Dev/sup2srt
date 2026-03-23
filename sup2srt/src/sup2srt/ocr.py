@@ -27,11 +27,10 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
-import numpy as np
 import pytesseract
 from PIL import Image, ImageFilter, ImageOps
 
-from sup_decoder import DecodedImage
+from sup2srt.sup_decoder import DecodedImage
 
 
 # -------------------------------------------------------------------------------

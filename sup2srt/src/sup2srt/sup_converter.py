@@ -28,13 +28,12 @@ Edge cases handled:
 """
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from sup_parser import DisplaySet, SupParser, ticks_to_timestamp
-from sup_decoder import decode_display_set
-from ocr import ocr_display_set
+from sup2srt.sup_parser import DisplaySet, SupParser
+from sup2srt.sup_decoder import decode_display_set
+from sup2srt.ocr import ocr_display_set
 
 
 # -------------------------------------------------------------------------------
