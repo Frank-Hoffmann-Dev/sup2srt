@@ -8,10 +8,10 @@ Description: Entry point that wires together parser, decoder, OCR and converter.
 ============================================================
 
 Single file mode:
-    python main.py <subtitle_file.sup> [options]
+    sup2srt <subtitle_file.sup> [options]
 
 Batch mode:
-    python main.py --batch /path/to/sup_folder [options]
+    sup2srt --batch /path/to/sup_folder [options]
 
 Options:
     --output,       -o      Output .srt file path (default: same name as input)
@@ -20,6 +20,7 @@ Options:
     --lang,         -l      Tesseract language code (default: eng)
     --workers,      -w      Number of parallel worker processes for OCR (default: 1)
     --debug,        -d      Print per-module timing and statistics
+    --version,      -V      Print the version number and exit
     --overwrite             Overwrite existing .srt files in batch mode (default: skip)
 
 Batch mode notes:
@@ -583,18 +584,25 @@ def build_parser() -> argparse.ArgumentParser:
         epilog="""
 Examples:
     # Single file
-    python main.py movie_subtitle.sup
-    python main.py movie_subtitle.sup -o movie_en_srt -l eng
-    python main.py movie_subtitle.sup -w 0 --debug
-    python main.py movie_subtitle.sup -l eng+deu -w 8 --debug
+    sup2srt movie_subtitle.sup
+    sup2srt movie_subtitle.sup -o movie_en_srt -l eng
+    sup2srt movie_subtitle.sup -w 0 --debug
+    sup2srt movie_subtitle.sup -l eng+deu -w 8 --debug
 
     # Batch mode
-    python main.py --batch /path/to/movie_subtitles/
-    python main.py --batch /path/to/movie_subtitles/ -O /home/user/abc/output/srt/ -l eng -w 0
-    python main.py --batch /path/to/movie_subtitles/ -l deu --overwrite --debug
+    sup2srt --batch /path/to/movie_subtitles/
+    sup2srt --batch /path/to/movie_subtitles/ -O /home/user/abc/output/srt/ -l eng -w 0
+    sup2srt --batch /path/to/movie_subtitles/ -l deu --overwrite --debug
     """
     )
-    mode = p.add_mutually_exclusive_group(required=True)
+
+    p.add_argument(
+        "-V", "--version",
+        action="version",
+        version=f"%(prog)s {__version__}"
+    )
+
+    mode = p.add_mutually_exclusive_group(required=False)
     mode.add_argument(
         "input",
         metavar="FILE.sup",
@@ -659,6 +667,9 @@ def main() -> None:
     import os
     parser = build_parser()
     args = parser.parse_args()
+
+    if not args.batch and not args.input:
+        parser.error("One of the arguments FILE.sup or -b/--batch is required.")
 
     # Resolve worker count;
     workers = args.workers
