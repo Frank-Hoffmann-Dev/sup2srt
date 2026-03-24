@@ -52,6 +52,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from sup2srt import __version__
+from sup2srt.color_stdout import green_print, red_print, yellow_print
 from sup2srt.sup_parser import DisplaySet, SupParser
 from sup2srt.sup_decoder import decode_display_set
 from sup2srt.ocr import ocr_display_set, validate_language, UnknownLanguageError, TesseractNotFoundError
@@ -96,7 +97,7 @@ class DebugStats:
 @contextmanager
 def _timer(stats: DebugStats | None, name: str):
     """
-    Context manager taht measures elapsed time and stores it in stats.
+    Context manager that measures elapsed time and stores it in stats.
     """
     start = time.perf_counter()
     yield
@@ -244,7 +245,7 @@ def _run_ocr_parallel(
 
         for future in as_completed(futures):
             done += 1
-            if verbose: print(f"\r  OCR progress: {done}/{total} ({workers} workers)", end="", flush=True)
+            if verbose: print(f"\r    OCR progress: {done}/{total} ({workers} workers)", end="", flush=True)
 
             result = future.result()
             if result is None: skipped += 1
@@ -323,10 +324,10 @@ def run(
 
     # Summary;
     print()
-    print("Finished processing.")
-    print(f"    Subtitles written   : {result.total}")
-    print(f"    Skipped (no OCR)    : {skipped}")
-    print(f"    Output              : {srt_path}")
+    green_print("Finished processing.")
+    green_print(f"    Subtitles written   : {result.total}")
+    green_print(f"    Skipped (no OCR)    : {skipped}")
+    green_print(f"    Output              : {srt_path}")
 
     if stats: stats.print_report()
 
@@ -423,7 +424,7 @@ def run_batch(
     sup_files = sorted(input_dir.glob("*.sup"))
 
     if not sup_files:
-        print(f"No .sup files found in '{input_dir}'")
+        yellow_print(f"No .sup files found in '{input_dir}'")
         sys.exit(0)
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -457,8 +458,8 @@ def run_batch(
         if lang_detected and file_lang != lang:
             try: validate_language(file_lang)
             except UnknownLanguageError as e:
-                print(f"    Warning: {e}")
-                print(f"    Falling back to '{lang}' for this file.")
+                yellow_print(f"    Warning: {e}")
+                yellow_print(f"    Falling back to '{lang}' for this file.")
                 file_lang = lang
                 lang_note = "(fallback - detected lang not installed)"
 
@@ -466,8 +467,8 @@ def run_batch(
 
         # Skip existing files unless --overwrite flag is set;
         if srt_path.exists() and not overwrite:
-            print(f"    Skipping - output already exists: {srt_path.name}")
-            print(f"    (use --overwrite to force reconversion)")
+            yellow_print(f"    Skipping - output already exists: {srt_path.name}")
+            yellow_print(f"    (use --overwrite to force reconversion)")
             batch_results.append(BatchResult(
                 sup_path=sup_path,
                 srt_path=srt_path,
@@ -506,7 +507,7 @@ def run_batch(
         except Exception as e:
             elapsed = time.perf_counter() - file_start
             error_msg = f"{type(e).__name__}: {e}"
-            print(f"    Error: {error_msg}", file=sys.stderr)
+            red_print(f"    Error: {error_msg}", file=sys.stderr)
             batch_results.append(BatchResult(
                 sup_path=sup_path,
                 srt_path=srt_path,
@@ -567,7 +568,7 @@ def _print_batch_summary(results: list[BatchResult], total_elapsed_s: float) -> 
             print(f"    {'':>{col_w}} {r.error}")
 
     print("-" * header_length)
-    print(f"    {succeeded} succeeded, {failed} failed, {skipped} skipped - "
+    green_print(f"    {succeeded} succeeded, {failed} failed, {skipped} skipped - "
           f"Total: {total_elapsed_s:.1f}s")
     print("=" * header_length)
 
@@ -682,7 +683,7 @@ def main() -> None:
     if args.batch:
         input_dir = Path(args.batch)
         if not input_dir.is_dir():
-            print(f"Error: Target is not a directory '{input_dir}'", file=sys.stderr)
+            red_print(f"Error: Target is not a directory '{input_dir}'", file=sys.stderr)
             sys.exit(1)
 
         output_dir = Path(args.output_dir) if args.output_dir else input_dir / "srt"
@@ -701,11 +702,11 @@ def main() -> None:
     # Single file mode;
     sup_path = Path(args.input)
     if not sup_path.exists():
-        print(f"Error: File not found '{sup_path}'", file=sys.stderr)
+        red_print(f"Error: File not found '{sup_path}'", file=sys.stderr)
         sys.exit(1)
 
     if sup_path.suffix.lower() != ".sup":
-        print(f"Warning: Input does not have .sup extension '{sup_path}'", file=sys.stderr)
+        yellow_print(f"Warning: Input does not have .sup extension '{sup_path}'", file=sys.stderr)
 
     srt_path = Path(args.output) if args.output else sup_path.with_suffix(".srt")
 
