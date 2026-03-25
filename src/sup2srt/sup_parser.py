@@ -24,7 +24,6 @@ Segment Types:
 
 A 'Display Set' includes all Segments of a subtitle (from one PCS to the next END).
 """
-
 import struct
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -77,7 +76,6 @@ class PCSSegment:
         return self.composition_state == 0x80
 
 
-
 @dataclass
 class CompositionObject:
     """
@@ -90,7 +88,6 @@ class CompositionObject:
     forced: bool
 
 
-
 @dataclass
 class WDSSegment:
     """
@@ -101,7 +98,6 @@ class WDSSegment:
     windows: list = field(default_factory=list)
 
 
-
 @dataclass
 class WindowDefinition:
     window_id: int
@@ -109,7 +105,6 @@ class WindowDefinition:
     y: int
     width: int
     height: int
-
 
 
 @dataclass
@@ -124,7 +119,6 @@ class PDSSegment:
 
     # Dict: index -> (Y, Cr, Cb, Alpha) - YCbCr color space;
     entries: dict = field(default_factory=dict)
-
 
 
 @dataclass
@@ -142,7 +136,6 @@ class ODSSegement:
     width: int
     height: int
     rle_data: bytes         # Raw, (possibly fragmented) RLE data;
-
 
 
 @dataclass

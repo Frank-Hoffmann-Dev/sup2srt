@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "sup2srt_HexDance"
+name = "sup2srt"
 version = "0.1.1"
 description = "Convert Blu-Ray PGS (.sup) subtitles to SRT via OCR"
 readme = "README.md"

@@ -17,17 +17,17 @@ class Color(Enum):
     YELLOW = Fore.YELLOW
 
 
-def color_print(text: str, color: Color) -> None:
+def print_color(text: str, color: Color) -> None:
     print((f"{color.value}{text}{Style.RESET_ALL}"))
 
 
-def green_print(text: str) -> None:
+def print_green(text: str) -> None:
     print((f"{Color.GREEN.value}{text}{Style.RESET_ALL}"))
 
 
-def red_print(text: str) -> None:
+def print_red(text: str) -> None:
     print((f"{Color.RED.value}{text}{Style.RESET_ALL}"))
 
 
-def yellow_print(text: str) -> None:
+def print_yellow(text: str) -> None:
     print((f"{Color.YELLOW.value}{text}{Style.RESET_ALL}"))

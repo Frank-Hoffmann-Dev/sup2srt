@@ -29,7 +29,6 @@ Byte != 0x00 -> 1 Pixel with color index = Byte 1
 Palette (PDS):
 Colors are saved as YCbCr (BT.601) and need conversion into RGB.
 """
-
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
@@ -37,6 +36,7 @@ from typing import Optional
 from PIL import Image
 import numpy as np
 
+from sup2srt.color_stdout import print_red
 from sup2srt.sup_parser import DisplaySet, PDSSegment, PCSSegment
 
 
@@ -189,7 +189,7 @@ def decode_rle(rle_data: bytes, width: int, height: int) -> np.ndarray:
 
         for idx, row in enumerate(rows):
             out_row = idx * 2
-            if out_row < height: out[out_row] = row          # Original line;
+            if out_row < height: out[out_row] = row                  # Original line;
             if out_row + 1 < height: out[out_row + 1] = row          # Last row if height is odd;
 
     return out
@@ -243,7 +243,7 @@ def decode_display_set(ds: DisplaySet) -> list[DecodedImage]:
         try:
             indices = decode_rle(ods.rle_data, ods.width, ods.height)
         except ValueError as e:
-            print(f"Warning: RLE error at ODS id={ods.object_id}: {e}")
+            print_red(f"Warning: RLE error at ODS id={ods.object_id}: {e}")
             continue
 
         image = indices_to_image(indices, rgba_palette)
