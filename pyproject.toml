@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sup2srt"
-version = "0.1.1"
+version = "0.1.2"
 description = "Convert Blu-Ray PGS (.sup) subtitles to SRT via OCR"
 readme = "README.md"
 license = { file = "LICENSE" }
