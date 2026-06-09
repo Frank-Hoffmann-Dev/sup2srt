@@ -338,7 +338,7 @@ def run(
 
     # 5. Phase: Write SRT;
     print("Writing SRT...")
-    with _timer(stats, "4. Write SRT"):
+    with _timer(stats, "5. Write SRT"):
         result = ConversionResult(entries=entries, skipped_blank=erase_count, skipped_empty=skipped)
         srt_path.write_text(result.to_srt(), encoding="utf-8")
 

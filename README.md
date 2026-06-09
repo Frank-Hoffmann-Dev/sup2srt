@@ -104,6 +104,10 @@ watchmen_eng.sup
 dune_ger.sup
 ```
 
+## Changelog
+### 0.1.3
+- added addtional spell and grammar correction via **LanguageTool** and **language_tool_python**
+
 
 ## OCR
 
@@ -120,6 +124,31 @@ Based on my tests, the subtitles are readable and understandable, but they are n
 The settings are located in the **ocr.py** module and can be modified as needed.
 
 In general, all modules can be used independently, as they contain self-tests (see the source code).
+
+
+## Spell and Grammar Correction via LanguageTool
+
+The OCR process leaves quite a few “broken” words, especially with letters like ‘i’ and “l.”
+Attempts to improve Tesseract’s results via the settings actually made things worse.
+
+Instead, I decided to use LanguageTool with “language_tool_python” to significantly improve the quality. It’s still not perfect, but it’s close. 
+
+Upon first launch, approximately 260 MiB are downloaded once (LanguageTool JVM).
+This feature can be disabled via a flag.
+The spell and grammar correction is quite fast, but naturally increases the overall processing time required. 
+
+My thanks go out to the devs of those both project!
+
+Check out the project site if you want to learn more about **LanguageTool** and **language_tool_python**:
+
+
+**LanguageTool Website**: [LanguageTool Website](https://languagetool.org/)
+
+**LanguageTool Github**: [LanguageTool Github](https://languagetool.org/)
+
+**language_tool_python at PyPi**: [language_tool_python PyPi](https://pypi.org/project/language_tool_python/)
+
+**language_tool_python Github**: [language_tool_python Github](https://github.com/jxmorris12/language_tool_python)
 
 
 ## License
