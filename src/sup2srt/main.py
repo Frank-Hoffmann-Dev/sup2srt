@@ -61,6 +61,7 @@ from sup2srt.sup_converter import (
     _is_erase_event,
     DEFAULT_DURATION_MS, MIN_DURATION_MS,
 )
+from sup2srt.spell_checker import SpellChecker, is_available as spell_checker_available
 
 
 # -------------------------------------------------------------------------------
@@ -274,7 +275,9 @@ def run(
         workers: int,
         default_duration_ms: float,
         min_duration_ms: float,
-        debug: bool
+        debug: bool,
+        spell_correct: bool = True,
+        spell_checker: SpellChecker | None = None
 ) -> None:
     stats = DebugStats() if debug else None
 
@@ -316,7 +319,24 @@ def run(
                 events, lang, min_duration_ms, default_duration_ms, verbose=True
             )
 
-    # 4. Phase: Write SRT;
+    # 4. Phase: Spell Correction (optional);
+    spell_stats = None
+    if spell_correct:
+        # Use an injected checker (batch mode, avoids JVM restart per file);
+        # Or create a short-lived one for single-file mode;
+        _owned = spell_checker is None
+        checker = spell_checker or SpellChecker.for_tesseract_lang(lang)
+
+        if checker:
+            print(f"Spell-Checking ({checker})...")
+            with _timer(stats, "4. Spell Correction"):
+                entries, spell_stats = checker.correct_entries(entries, verbose=True)
+
+            if _owned: checker.close()
+
+        else: print_yellow("    Spell-check skipped (language not supported or 'language_tool_python' not installed).")
+
+    # 5. Phase: Write SRT;
     print("Writing SRT...")
     with _timer(stats, "4. Write SRT"):
         result = ConversionResult(entries=entries, skipped_blank=erase_count, skipped_empty=skipped)
@@ -327,6 +347,7 @@ def run(
     print_green("Finished processing.")
     print_green(f"    Subtitles written   : {result.total}")
     print_green(f"    Skipped (no OCR)    : {skipped}")
+    print_green(f"    Spell-Check         : {spell_stats}")
     print_green(f"    Output              : {srt_path}")
 
     if stats: stats.print_report()
@@ -413,7 +434,8 @@ def run_batch(
         workers: int,
         default_duration_ms: float,
         debug: bool,
-        overwrite: bool
+        overwrite: bool,
+        spell_correct: bool = True
 ) -> None:
     """
     Convert all .SUP files in input_dir to .SRT files in output_dir.
@@ -446,78 +468,107 @@ def run_batch(
     batch_results: list[BatchResult] = []
     batch_start = time.perf_counter()
 
-    for file_index, sup_path in enumerate(sup_files, start=1):
-        srt_path = output_dir / sup_path.with_suffix(".srt").name
+    # Create one SpellChecker instance for the whole batch;
+    # It is replaced only when the detected file language differs from the language
+    # the current instance was created for (e.g. mixed-language batch);
+    shared_checker: SpellChecker | None = None
+    shared_checker_lang: str = ""
 
-        # Detect language from filename;
-        # Fallback back to --lang if not found;
-        file_lang, lang_detected = detect_language(sup_path.stem, fallback=lang)
-        lang_note = "(detected from filename)" if lang_detected else "(fallback)"
+    if spell_correct:
+        shared_checker = SpellChecker.for_tesseract_lang(lang)
+        if shared_checker: shared_checker_lang = lang
+        else: print_yellow("    Spell-Check skipped (language not supported or 'language_tool_python' not installed).")
 
-        # Validate detected language (fallback was already checked above);
-        if lang_detected and file_lang != lang:
-            try: validate_language(file_lang)
-            except UnknownLanguageError as e:
-                print_yellow(f"    Warning: {e}")
-                print_yellow(f"    Falling back to '{lang}' for this file.")
-                file_lang = lang
-                lang_note = "(fallback - detected lang not installed)"
+    try:
+        for file_index, sup_path in enumerate(sup_files, start=1):
+            srt_path = output_dir / sup_path.with_suffix(".srt").name
 
-        print(f"[{file_index}/{len(sup_files)}] {sup_path.name} - lang: {file_lang} {lang_note}")
+            # Detect language from filename;
+            # Fallback back to --lang if not found;
+            file_lang, lang_detected = detect_language(sup_path.stem, fallback=lang)
+            lang_note = "(detected from filename)" if lang_detected else "(fallback)"
 
-        # Skip existing files unless --overwrite flag is set;
-        if srt_path.exists() and not overwrite:
-            print_yellow(f"    Skipping - output already exists: {srt_path.name}")
-            print_yellow(f"    (use --overwrite to force reconversion)")
-            batch_results.append(BatchResult(
-                sup_path=sup_path,
-                srt_path=srt_path,
-                success=True,
-                error="skipped (already exists)"
-            ))
+            # Validate detected language (fallback was already checked above);
+            if lang_detected and file_lang != lang:
+                try: validate_language(file_lang)
+                except UnknownLanguageError as e:
+                    print_yellow(f"    Warning: {e}")
+                    print_yellow(f"    Falling back to '{lang}' for this file.")
+                    file_lang = lang
+                    lang_note = "(fallback - detected lang not installed)"
+
+            print(f"[{file_index}/{len(sup_files)}] {sup_path.name} - lang: {file_lang} {lang_note}")
+
+            # Skip existing files unless --overwrite flag is set;
+            if srt_path.exists() and not overwrite:
+                print_yellow(f"    Skipping - output already exists: {srt_path.name}")
+                print_yellow(f"    (use --overwrite to force reconversion)")
+                batch_results.append(BatchResult(
+                    sup_path=sup_path,
+                    srt_path=srt_path,
+                    success=True,
+                    error="skipped (already exists)"
+                ))
+                print()
+                continue
+
+            # Swap shared checker if this file's language differs from the current checker's language;
+            if spell_correct and file_lang != shared_checker_lang:
+                if shared_checker: shared_checker.close()
+
+                shared_checker = SpellChecker.for_tesseract_lang(file_lang)
+                shared_checker_lang = file_lang
+                if not shared_checker:
+                    print_yellow(f"    Spell-Check skipped for '{file_lang}' (not supported).")
+
+            file_start = time.perf_counter()
+            try:
+                run(
+                    sup_path=sup_path,
+                    srt_path=srt_path,
+                    lang=file_lang,
+                    workers=workers,
+                    default_duration_ms=default_duration_ms,
+                    min_duration_ms=MIN_DURATION_MS,
+                    debug=debug,
+                    spell_correct=spell_correct,
+                    spell_checker=shared_checker
+                )
+                elapsed = time.perf_counter() - file_start
+
+                # Read subtitle count from the written file to report it;
+                srt_text = srt_path.read_text(encoding="utf-8")
+                subtitle_count = srt_text.count("\n\n") + (1 if srt_text.strip() else 0)
+
+                batch_results.append(BatchResult(
+                    sup_path=sup_path,
+                    srt_path=srt_path,
+                    success=True,
+                    lang=file_lang,
+                    subtitles=subtitle_count,
+                    elapsed_s=elapsed
+                ))
+
+            except Exception as e:
+                elapsed = time.perf_counter() - file_start
+                error_msg = f"{type(e).__name__}: {e}"
+                print_red(f"    Error: {error_msg}", file=sys.stderr)
+                batch_results.append(BatchResult(
+                    sup_path=sup_path,
+                    srt_path=srt_path,
+                    success=False,
+                    lang=file_lang,
+                    elapsed_s=elapsed,
+                    error=error_msg
+                ))
+
             print()
-            continue
 
-        file_start = time.perf_counter()
-        try:
-            run(
-                sup_path=sup_path,
-                srt_path=srt_path,
-                lang=file_lang,
-                workers=workers,
-                default_duration_ms=default_duration_ms,
-                min_duration_ms=MIN_DURATION_MS,
-                debug=debug
-            )
-            elapsed = time.perf_counter() - file_start
+    # Always shut down the shared JVM process, even on error or Ctrl+C;
+    finally:
+        if shared_checker:
+            shared_checker.close()
 
-            # Read subtitle count from the written file to report it;
-            srt_text = srt_path.read_text(encoding="utf-8")
-            subtitle_count = srt_text.count("\n\n") + (1 if srt_text.strip() else 0)
-
-            batch_results.append(BatchResult(
-                sup_path=sup_path,
-                srt_path=srt_path,
-                success=True,
-                lang=file_lang,
-                subtitles=subtitle_count,
-                elapsed_s=elapsed
-            ))
-
-        except Exception as e:
-            elapsed = time.perf_counter() - file_start
-            error_msg = f"{type(e).__name__}: {e}"
-            print_red(f"    Error: {error_msg}", file=sys.stderr)
-            batch_results.append(BatchResult(
-                sup_path=sup_path,
-                srt_path=srt_path,
-                success=False,
-                lang=file_lang,
-                elapsed_s=elapsed,
-                error=error_msg
-            ))
-
-        print()
 
     # Batch summary table;
     batch_elapsed = time.perf_counter() - batch_start
@@ -660,6 +711,11 @@ Examples:
         action="store_true",
         help="Overwrite existing .srt files in batch mode (default: skip)"
     )
+    p.add_argument(
+        "--no-spell",
+        action="store_true",
+        help="Disable spell/grammar correction via LanguageTool (default: enabled when language is detected)"
+    )
 
     return p
 
@@ -695,7 +751,8 @@ def main() -> None:
             workers=workers,
             default_duration_ms=args.duration,
             debug=args.debug,
-            overwrite=args.overwrite
+            overwrite=args.overwrite,
+            spell_correct=not args.no_spell
         )
         return
 
@@ -717,7 +774,8 @@ def main() -> None:
         workers=workers,
         default_duration_ms=args.duration,
         min_duration_ms=MIN_DURATION_MS,
-        debug=args.debug
+        debug=args.debug,
+        spell_correct=not args.no_spell
     )
 
 

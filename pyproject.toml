@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sup2srt"
-version = "0.1.2"
+version = "0.1.3"
 description = "Convert Blu-Ray PGS (.sup) subtitles to SRT via OCR"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -27,11 +27,12 @@ classifiers = [
 ]
 
 dependencies = [
-    "colorama>=0.4.6",
-    "numpy>=2.4.3",
-    "pillow>=12.1.1",
-    "pytesseract>=0.3.13"
-]
+    "colorama==0.4.6",
+    "numpy==2.4.3",
+    "pillow==12.1.1",
+    "pytesseract==0.3.13",
+    "language_tool_python==3.4.0"
+    ]
 
 [project.optional-dependencies]
 dev = [
