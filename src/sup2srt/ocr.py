@@ -27,6 +27,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
+import numpy as np
 import pytesseract
 from PIL import Image, ImageFilter, ImageOps
 
@@ -53,6 +54,22 @@ UPSCALE_FACTOR = 2.0
 # Subtitles are almost always light text on dark/transparent background.
 BINARY_THRESHOLD = 80
 
+# Adaptive threshold for dim text.
+# UHD discs draw subtitles in grey (luma ~144-150 instead of ~235), which the fixed
+# threshold above turns entirely white, so Tesseract reads nothing. The cut-off
+# therefore follows each image's own text brightness: a pixel counts as text when its
+# luma exceeds TEXT_LUMA_FRACTION of the image's peak luma (the TEXT_PEAK_PERCENTILE
+# of its pixels with alpha >= VISIBLE_ALPHA). The fraction is the fixed threshold's
+# ratio for standard white text (luma 175 of 235), so such images are binarized
+# exactly as before. The threshold (after inversion) is never set below
+# BINARY_THRESHOLD, i.e. the luma cut-off never rises above 175: bright text keeps
+# the fixed threshold. Images whose peak is below MIN_TEXT_LUMA hold no readable
+# text (shadows, boxes) and keep the fixed threshold too.
+TEXT_LUMA_FRACTION = 0.745
+TEXT_PEAK_PERCENTILE = 99
+VISIBLE_ALPHA = 128
+MIN_TEXT_LUMA = 64
+
 
 
 # -------------------------------------------------------------------------------
@@ -73,6 +90,23 @@ class OCRResult:
 # -------------------------------------------------------------------------------
 # Image Presprocessing;
 # -------------------------------------------------------------------------------
+def binary_threshold(gray: Image.Image, alpha: Image.Image) -> int:
+    """
+    Binarization threshold (applied after inversion) for one flattened greyscale image.
+
+    BINARY_THRESHOLD for standard white text; higher for dim text, so that grey text
+    still counts as text. See TEXT_LUMA_FRACTION.
+    """
+    luma = np.asarray(gray)
+    visible = luma[np.asarray(alpha) >= VISIBLE_ALPHA]
+    if visible.size == 0: return BINARY_THRESHOLD
+
+    peak = float(np.percentile(visible, TEXT_PEAK_PERCENTILE))
+    if peak < MIN_TEXT_LUMA: return BINARY_THRESHOLD
+
+    return max(BINARY_THRESHOLD, 255 - round(peak * TEXT_LUMA_FRACTION))
+
+
 def _rgba_to_binary(image: Image.Image) -> Image.Image:
     """
     Convert an RGBA subtitle image to a high-contrast black-on-white binary image suitable for Tesseract.
@@ -81,18 +115,20 @@ def _rgba_to_binary(image: Image.Image) -> Image.Image:
         1. Composite onto black background (flatten alpha correctly)
         2. Convert to greyscale
         3. Invert (subtitle text is bright -> make it dark for Tesseract)
-        4. Apply threshold -> pure black/white
+        4. Apply threshold -> pure black/white (adaptive for dim text)
     """
     # 1. Flatten alpha onto black background;
+    alpha = image.split()[3]
     bg = Image.new("RGBA", image.size, (0, 0, 0, 255))
-    bg.paste(image, mask=image.split()[3])      # Alpha channel as mask;
+    bg.paste(image, mask=alpha)                 # Alpha channel as mask;
     gray = bg.convert("L")                      # L = greyscale;
+    threshold = binary_threshold(gray, alpha)
 
     # 2. Invert: bright subtitle text becomes dark;
     gray = ImageOps.invert(gray)
 
     # 3. Binarize;
-    binary = gray.point(lambda px: 0 if px < BINARY_THRESHOLD else 255, "L")
+    binary = gray.point(lambda px: 0 if px < threshold else 255, "L")
 
     return binary
 

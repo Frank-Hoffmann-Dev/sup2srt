@@ -50,3 +50,7 @@ Homepage = "https://github.com/Frank-Hoffmann-Dev/sup2srt"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sup2srt"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
